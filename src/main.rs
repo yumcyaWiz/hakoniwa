@@ -36,7 +36,7 @@ use vulkano_win::VkSurfaceBuild;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
 
 fn main() {
@@ -91,6 +91,61 @@ fn main() {
         physical_device.properties().device_name,
         physical_device.properties().device_type
     );
+
+    let (device, mut queues) = Device::new(
+        physical_device,
+        DeviceCreateInfo {
+            enabled_extensions: device_extensions,
+            queue_create_infos: vec![QueueCreateInfo {
+                queue_family_index,
+                ..Default::default()
+            }],
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    let queue = queues.next().unwrap();
+
+    let (mut swapchain, images) = {
+        let surface_capabilities = device
+            .physical_device()
+            .surface_capabilities(&surface, Default::default())
+            .unwrap();
+
+        let image_format = Some(
+            device
+                .physical_device()
+                .surface_formats(&surface, Default::default())
+                .unwrap()[0]
+                .0,
+        );
+
+        let window = surface.object().unwrap().downcast_ref::<Window>().unwrap();
+
+        Swapchain::new(
+            device.clone(),
+            surface.clone(),
+            SwapchainCreateInfo {
+                min_image_count: surface_capabilities.min_image_count,
+                image_format,
+                image_extent: window.inner_size().into(),
+                image_usage: ImageUsage {
+                    color_attachment: true,
+                    ..ImageUsage::empty()
+                },
+                composite_alpha: surface_capabilities
+                    .supported_composite_alpha
+                    .iter()
+                    .next()
+                    .unwrap(),
+                ..Default::default()
+            },
+        )
+        .unwrap()
+    };
+
+    let memory_allocator = StandardMemoryAllocator::new_default(device.clone());
 
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
